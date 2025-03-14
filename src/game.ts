@@ -35,6 +35,9 @@ interface Sheep {
   visible: boolean;
   gateTimer?: number; // Timer for tracking how long sheep has been in gate
   gateCooldown?: number; // Cooldown timer to prevent immediate re-entry
+  stationaryTimer?: number; // Timer for tracking how long sheep has been stationary
+  lastX?: number; // Last X position to detect if sheep is stationary
+  lastY?: number; // Last Y position to detect if sheep is stationary
   effect?: {
     type: "enter" | "exit"; // Type of effect
     timer: number; // Timer for effect duration
@@ -49,11 +52,19 @@ interface Gate {
   height: number;
 }
 
+interface Wall {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 // Game State
 interface GameState {
   dog: Dog;
   sheep: Sheep[];
   gate: Gate;
+  wall: Wall; // Added wall to the left of the gate
   keys: {
     ArrowUp: boolean;
     ArrowDown: boolean;
@@ -142,6 +153,12 @@ export class HerdingGame {
         y: this.config.mapHeight / 2 - this.config.gateHeight / 2,
         width: this.config.gateWidth,
         height: this.config.gateHeight,
+      },
+      wall: {
+        x: this.config.mapWidth - 100 - 5, // Position wall to the left of the gate
+        y: this.config.mapHeight / 2 - this.config.gateHeight / 2, // Same y-position as gate
+        width: 5, // Thinner wall thickness
+        height: this.config.gateHeight, // Same height as gate
       },
       keys: {
         ArrowUp: false,
@@ -283,6 +300,11 @@ export class HerdingGame {
     // Update gate position based on new map size
     this.state.gate.x = this.config.mapWidth - 100;
     this.state.gate.y = this.config.mapHeight / 2 - this.config.gateHeight / 2;
+
+    // Update wall position based on gate position
+    this.state.wall.x = this.state.gate.x - 5; // Position wall to the left of the gate
+    this.state.wall.y = this.state.gate.y; // Same y-position as gate
+    this.state.wall.height = this.config.gateHeight; // Same height as gate
   }
 
   private initLevel(): void {
@@ -347,11 +369,18 @@ export class HerdingGame {
         visible: true,
         gateTimer: 0,
         gateCooldown: 0,
+        stationaryTimer: 0,
+        lastX: x,
+        lastY: y,
       });
     }
   }
 
   private updateDog(): void {
+    // Store previous position to revert if collision occurs
+    const prevX = this.state.dog.x;
+    const prevY = this.state.dog.y;
+
     // Update dog position based on key presses
     if (this.state.keys.ArrowUp) {
       this.state.dog.y -= this.state.dog.speed;
@@ -379,6 +408,26 @@ export class HerdingGame {
       0,
       Math.min(this.canvas.height - this.state.dog.height, this.state.dog.y)
     );
+
+    // Check collision with wall
+    if (this.checkCollision(this.state.dog, this.state.wall)) {
+      // Revert to previous position if collision occurs
+      this.state.dog.x = prevX;
+      this.state.dog.y = prevY;
+    }
+  }
+
+  // Helper method to check collision between two rectangles
+  private checkCollision(
+    rect1: { x: number; y: number; width: number; height: number },
+    rect2: { x: number; y: number; width: number; height: number }
+  ): boolean {
+    return (
+      rect1.x < rect2.x + rect2.width &&
+      rect1.x + rect1.width > rect2.x &&
+      rect1.y < rect2.y + rect2.height &&
+      rect1.y + rect1.height > rect2.y
+    );
   }
 
   private updateSheep(deltaTime: number): void {
@@ -400,6 +449,49 @@ export class HerdingGame {
         if (sheep.effect.timer >= sheep.effect.maxTime) {
           sheep.effect = undefined; // Remove effect when timer expires
         }
+      }
+
+      // Check if sheep is stationary (outside the gate)
+      if (!sheep.inGate) {
+        // Initialize last position if not set
+        if (sheep.lastX === undefined || sheep.lastY === undefined) {
+          sheep.lastX = sheep.x;
+          sheep.lastY = sheep.y;
+          sheep.stationaryTimer = 0;
+        }
+
+        // Calculate distance moved since last check
+        const dx = sheep.x - sheep.lastX;
+        const dy = sheep.y - sheep.lastY;
+        const distanceMoved = Math.sqrt(dx * dx + dy * dy);
+
+        // If sheep has barely moved, increment stationary timer
+        if (distanceMoved < 1) {
+          // Initialize stationaryTimer if undefined
+          if (sheep.stationaryTimer === undefined) {
+            sheep.stationaryTimer = 0;
+          }
+
+          sheep.stationaryTimer += deltaTime / 1000;
+
+          // If sheep has been stationary for more than 3 seconds, give it a random velocity
+          if (sheep.stationaryTimer > 3) {
+            // Random angle
+            const angle = Math.random() * Math.PI * 2;
+            // Set velocity in random direction
+            sheep.vx = Math.cos(angle) * this.config.sheepSpeed;
+            sheep.vy = Math.sin(angle) * this.config.sheepSpeed;
+            // Reset timer
+            sheep.stationaryTimer = 0;
+          }
+        } else {
+          // Reset timer if sheep is moving
+          sheep.stationaryTimer = 0;
+        }
+
+        // Update last position
+        sheep.lastX = sheep.x;
+        sheep.lastY = sheep.y;
       }
 
       // If sheep is in gate, update timer
@@ -448,16 +540,16 @@ export class HerdingGame {
 
             // Keep sheep within gate bounds
             sheep.x = Math.max(
-              this.state.gate.x + 5,
+              this.state.gate.x + 3,
               Math.min(
-                this.state.gate.x + this.state.gate.width - sheep.width - 5,
+                this.state.gate.x + this.state.gate.width - sheep.width - 3,
                 sheep.x
               )
             );
             sheep.y = Math.max(
-              this.state.gate.y + 5,
+              this.state.gate.y + 2,
               Math.min(
-                this.state.gate.y + this.state.gate.height - sheep.height - 5,
+                this.state.gate.y + this.state.gate.height - sheep.height - 2,
                 sheep.y
               )
             );
@@ -651,6 +743,10 @@ export class HerdingGame {
         sheep.vy = (sheep.vy / speed) * this.config.sheepSpeed;
       }
 
+      // Store previous position to revert if collision occurs
+      const prevX = sheep.x;
+      const prevY = sheep.y;
+
       // Update sheep position
       sheep.x += sheep.vx;
       sheep.y += sheep.vy;
@@ -665,6 +761,17 @@ export class HerdingGame {
         safetyMargin,
         Math.min(this.canvas.height - sheep.height - safetyMargin, sheep.y)
       );
+
+      // Check collision with wall
+      if (this.checkCollision(sheep, this.state.wall)) {
+        // Revert to previous position
+        sheep.x = prevX;
+        sheep.y = prevY;
+
+        // Bounce off the wall with some randomness
+        sheep.vx = -sheep.vx * 0.8 + (Math.random() - 0.5) * 0.5;
+        sheep.vy = sheep.vy * 0.8 + (Math.random() - 0.5) * 0.5;
+      }
 
       // Ensure sheep is visible and has valid coordinates
       sheep.visible = true;
@@ -760,6 +867,15 @@ export class HerdingGame {
     // Clear canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+    // Draw wall to the left of the gate
+    this.ctx.fillStyle = "#5D4037"; // Dark brown for wall
+    this.ctx.fillRect(
+      this.state.wall.x,
+      this.state.wall.y,
+      this.state.wall.width,
+      this.state.wall.height
+    );
+
     // Draw gate
     this.ctx.fillStyle = "#8B4513"; // Brown color for gate
     this.ctx.fillRect(
@@ -773,15 +889,15 @@ export class HerdingGame {
     this.ctx.fillStyle = "#5D4037"; // Darker brown for posts
     this.ctx.fillRect(
       this.state.gate.x,
-      this.state.gate.y - 10,
-      10,
-      this.state.gate.height + 20
+      this.state.gate.y,
+      3, // Thinner gate posts
+      this.state.gate.height
     );
     this.ctx.fillRect(
-      this.state.gate.x + this.state.gate.width - 10,
-      this.state.gate.y - 10,
-      10,
-      this.state.gate.height + 20
+      this.state.gate.x + this.state.gate.width - 3, // Adjusted position for thinner post
+      this.state.gate.y,
+      3, // Thinner gate posts
+      this.state.gate.height
     );
 
     // Draw sheep
