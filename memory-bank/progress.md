@@ -13,7 +13,7 @@ The "Border Collie and Me" project is currently in the conceptual and prototype 
 | Concept Definition | Complete    | 100%     |
 | Technical Planning | In Progress | 60%      |
 | Prototype          | In Progress | 15%      |
-| Core Engine        | Not Started | 0%       |
+| Core Engine        | In Progress | 5%       |
 | Game Systems       | Not Started | 0%       |
 | UI Development     | Not Started | 0%       |
 | Art Assets         | Not Started | 0%       |
@@ -43,12 +43,13 @@ As the project is in the planning phase, no functional components have been impl
 
 ## What's Left to Build
 
-### Phase 1: Core Engine (0% Complete)
+### Phase 1: Core Engine (5% Complete)
 
 1. **Project Setup**
 
-   - Initialize repository
-   - Configure development environment
+   - ✅ Initialize repository
+   - ✅ Configure development environment with TypeScript and Vite
+   - ✅ Add .gitignore file
    - Set up build pipeline
 
 2. **Game Loop**
@@ -225,4 +226,8 @@ As implementation has not yet begun, there are no specific technical issues to r
 
 ## Recent Progress Updates
 
-As this is the initial documentation, there are no progress updates to report. This section will be updated as development begins and milestones are reached.
+### 2025/3/14
+
+- Added .gitignore file to exclude node_modules, build outputs, and other unnecessary files from version control
+- Updated project setup documentation to reflect current progress
+- Core Engine phase now at 5% completion
