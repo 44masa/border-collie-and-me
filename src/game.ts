@@ -476,7 +476,8 @@ export class HerdingGame {
         const distanceMoved = Math.sqrt(dx * dx + dy * dy);
 
         // If sheep has barely moved, increment stationary timer
-        if (distanceMoved < 1) {
+        // Using a slightly larger threshold (5 pixels) to better detect "stuck" sheep
+        if (distanceMoved < 5) {
           // Initialize stationaryTimer if undefined
           if (sheep.stationaryTimer === undefined) {
             sheep.stationaryTimer = 0;
@@ -488,14 +489,18 @@ export class HerdingGame {
           if (sheep.stationaryTimer > 3) {
             // Random angle
             const angle = Math.random() * Math.PI * 2;
-            // Set velocity in random direction
-            sheep.vx = Math.cos(angle) * this.config.sheepSpeed;
-            sheep.vy = Math.sin(angle) * this.config.sheepSpeed;
+            // Set velocity in random direction with a stronger impulse to ensure it gets unstuck
+            sheep.vx = Math.cos(angle) * this.config.sheepSpeed * 1.5;
+            sheep.vy = Math.sin(angle) * this.config.sheepSpeed * 1.5;
             // Reset timer
             sheep.stationaryTimer = 0;
+
+            console.log(
+              "Sheep was stuck for 3+ seconds - applying random movement"
+            );
           }
         } else {
-          // Reset timer if sheep is moving
+          // Reset timer if sheep is moving significantly
           sheep.stationaryTimer = 0;
         }
 
@@ -581,17 +586,23 @@ export class HerdingGame {
       sheep.visible = true;
 
       // Check if sheep is in gate (only if not in cooldown)
+      // Using sheep center point for more accurate gate detection
+      const sheepCenterX = sheep.x + sheep.width / 2;
+      const sheepCenterY = sheep.y + sheep.height / 2;
+
       if (
         (!sheep.gateCooldown || sheep.gateCooldown <= 0) &&
-        sheep.x > this.state.gate.x &&
-        sheep.x < this.state.gate.x + this.state.gate.width &&
-        sheep.y > this.state.gate.y &&
-        sheep.y < this.state.gate.y + this.state.gate.height
+        sheepCenterX > this.state.gate.x &&
+        sheepCenterX < this.state.gate.x + this.state.gate.width &&
+        sheepCenterY > this.state.gate.y &&
+        sheepCenterY < this.state.gate.y + this.state.gate.height
       ) {
         // No enter effect
-
         sheep.inGate = true;
         sheep.gateTimer = 0; // Start the timer
+
+        // Debug gate entry
+        console.log("Sheep entered gate at", sheepCenterX, sheepCenterY);
       } else if (!sheep.inGate) {
         // Only set to false if not already in gate (to avoid overriding the 3-second timer logic)
         sheep.inGate = false;
