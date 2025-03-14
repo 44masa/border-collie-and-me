@@ -115,8 +115,8 @@ export class HerdingGame {
       dog: {
         x: 400,
         y: 300,
-        width: 40,
-        height: 40,
+        width: 60,
+        height: 60,
         direction: "down",
         speed: this.config.dogSpeed,
       },
@@ -262,8 +262,8 @@ export class HerdingGame {
         y,
         vx: 0,
         vy: 0,
-        width: 40,
-        height: 40,
+        width: 60,
+        height: 60,
         inGate: false,
         visible: true,
         gateTimer: 0,
@@ -335,12 +335,7 @@ export class HerdingGame {
             sheep.gateTimer = 0; // Reset timer
             sheep.gateCooldown = 1.0; // Set cooldown to prevent immediate re-entry (1 second)
 
-            // Create exit effect
-            sheep.effect = {
-              type: "exit",
-              timer: 0,
-              maxTime: 0.5, // Effect lasts 0.5 seconds
-            };
+            // No exit effect
 
             // Make sheep jump out randomly either upward or downward
             sheep.vx = 0; // No horizontal velocity initially
@@ -412,14 +407,7 @@ export class HerdingGame {
         sheep.y > this.state.gate.y &&
         sheep.y < this.state.gate.y + this.state.gate.height
       ) {
-        // If sheep wasn't in gate before, create an enter effect
-        if (!sheep.inGate) {
-          sheep.effect = {
-            type: "enter",
-            timer: 0,
-            maxTime: 0.5, // Effect lasts 0.5 seconds
-          };
-        }
+        // No enter effect
 
         sheep.inGate = true;
         sheep.gateTimer = 0; // Start the timer
@@ -501,19 +489,77 @@ export class HerdingGame {
       separationX *= 0.05;
       separationY *= 0.05;
 
-      // Calculate boundary avoidance
+      // Calculate boundary avoidance with special corner handling
       let boundaryX = 0;
       let boundaryY = 0;
 
-      const boundaryMargin = 50;
-      if (sheep.x < boundaryMargin)
-        boundaryX = (boundaryMargin - sheep.x) * 0.05;
-      if (sheep.x > this.canvas.width - boundaryMargin)
-        boundaryX = (this.canvas.width - boundaryMargin - sheep.x) * 0.05;
-      if (sheep.y < boundaryMargin)
-        boundaryY = (boundaryMargin - sheep.y) * 0.05;
-      if (sheep.y > this.canvas.height - boundaryMargin)
-        boundaryY = (this.canvas.height - boundaryMargin - sheep.y) * 0.05;
+      const boundaryMargin = 80; // Even larger margin to keep sheep further from edges
+      const cornerMargin = 100; // Special margin for corner detection
+      const cornerFactor = 5.0; // Much stronger force in corners
+      const baseForce = 0.2; // Stronger base force
+
+      // Detect if sheep is in a corner region
+      const inLeftSide = sheep.x < cornerMargin;
+      const inRightSide = sheep.x > this.canvas.width - cornerMargin;
+      const inTopSide = sheep.y < cornerMargin;
+      const inBottomSide = sheep.y > this.canvas.height - cornerMargin;
+
+      // Check for corner cases first (they take priority)
+      if (inLeftSide && inTopSide) {
+        // Top-left corner
+        boundaryX = cornerFactor * baseForce;
+        boundaryY = cornerFactor * baseForce;
+
+        // Add random jitter to help escape
+        boundaryX += Math.random() * baseForce;
+        boundaryY += Math.random() * baseForce;
+      } else if (inRightSide && inTopSide) {
+        // Top-right corner
+        boundaryX = -cornerFactor * baseForce;
+        boundaryY = cornerFactor * baseForce;
+
+        // Add random jitter to help escape
+        boundaryX -= Math.random() * baseForce;
+        boundaryY += Math.random() * baseForce;
+      } else if (inLeftSide && inBottomSide) {
+        // Bottom-left corner
+        boundaryX = cornerFactor * baseForce;
+        boundaryY = -cornerFactor * baseForce;
+
+        // Add random jitter to help escape
+        boundaryX += Math.random() * baseForce;
+        boundaryY -= Math.random() * baseForce;
+      } else if (inRightSide && inBottomSide) {
+        // Bottom-right corner
+        boundaryX = -cornerFactor * baseForce;
+        boundaryY = -cornerFactor * baseForce;
+
+        // Add random jitter to help escape
+        boundaryX -= Math.random() * baseForce;
+        boundaryY -= Math.random() * baseForce;
+      }
+      // If not in a corner, check regular boundaries
+      else {
+        // Check if sheep is near left boundary
+        if (sheep.x < boundaryMargin) {
+          boundaryX = (boundaryMargin - sheep.x) * baseForce;
+        }
+        // Check if sheep is near right boundary
+        else if (sheep.x > this.canvas.width - boundaryMargin) {
+          boundaryX =
+            (this.canvas.width - boundaryMargin - sheep.x) * baseForce;
+        }
+
+        // Check if sheep is near top boundary
+        if (sheep.y < boundaryMargin) {
+          boundaryY = (boundaryMargin - sheep.y) * baseForce;
+        }
+        // Check if sheep is near bottom boundary
+        else if (sheep.y > this.canvas.height - boundaryMargin) {
+          boundaryY =
+            (this.canvas.height - boundaryMargin - sheep.y) * baseForce;
+        }
+      }
 
       // Update sheep velocity
       sheep.vx += cohesionX + alignmentX + separationX + fleeX + boundaryX;
@@ -530,12 +576,34 @@ export class HerdingGame {
       sheep.x += sheep.vx;
       sheep.y += sheep.vy;
 
-      // Keep sheep within canvas bounds
-      sheep.x = Math.max(0, Math.min(this.canvas.width - sheep.width, sheep.x));
-      sheep.y = Math.max(
-        0,
-        Math.min(this.canvas.height - sheep.height, sheep.y)
+      // Keep sheep within canvas bounds with extra safety margin
+      const safetyMargin = 10; // Extra margin to ensure sheep don't get stuck at the very edge
+      sheep.x = Math.max(
+        safetyMargin,
+        Math.min(this.canvas.width - sheep.width - safetyMargin, sheep.x)
       );
+      sheep.y = Math.max(
+        safetyMargin,
+        Math.min(this.canvas.height - sheep.height - safetyMargin, sheep.y)
+      );
+
+      // Ensure sheep is visible and has valid coordinates
+      sheep.visible = true;
+
+      // Additional safety check for NaN or invalid positions
+      if (
+        isNaN(sheep.x) ||
+        isNaN(sheep.y) ||
+        !isFinite(sheep.x) ||
+        !isFinite(sheep.y)
+      ) {
+        // Reset to a safe position if coordinates are invalid
+        sheep.x = this.canvas.width / 2;
+        sheep.y = this.canvas.height / 2;
+        sheep.vx = 0;
+        sheep.vy = 0;
+        console.log("Rescued a sheep with invalid coordinates");
+      }
     });
 
     // Update UI
@@ -637,67 +705,7 @@ export class HerdingGame {
         sheep.height
       );
 
-      // Draw effects if active
-      if (sheep.effect) {
-        const progress = sheep.effect.timer / sheep.effect.maxTime; // 0 to 1
-
-        if (sheep.effect.type === "enter") {
-          // Draw enter effect (green sparkles)
-          this.ctx.save();
-          this.ctx.globalAlpha = 1 - progress; // Fade out
-
-          // Draw multiple sparkles around the sheep
-          const sparkleCount = 8;
-          const radius = 30 * progress; // Expand outward
-
-          this.ctx.fillStyle = "#4CAF50"; // Green color
-          for (let i = 0; i < sparkleCount; i++) {
-            const angle = (i / sparkleCount) * Math.PI * 2;
-            const x = sheep.x + sheep.width / 2 + Math.cos(angle) * radius;
-            const y = sheep.y + sheep.height / 2 + Math.sin(angle) * radius;
-            const size = 5 * (1 - progress); // Shrink as they expand
-
-            this.ctx.beginPath();
-            this.ctx.arc(x, y, size, 0, Math.PI * 2);
-            this.ctx.fill();
-          }
-
-          this.ctx.restore();
-        } else if (sheep.effect.type === "exit") {
-          // Draw exit effect (red/orange burst)
-          this.ctx.save();
-          this.ctx.globalAlpha = 1 - progress; // Fade out
-
-          // Draw burst effect
-          const burstRadius = 40 * progress; // Expand outward
-
-          // Create radial gradient for fire-like effect
-          const gradient = this.ctx.createRadialGradient(
-            sheep.x + sheep.width / 2,
-            sheep.y + sheep.height / 2,
-            0,
-            sheep.x + sheep.width / 2,
-            sheep.y + sheep.height / 2,
-            burstRadius
-          );
-          gradient.addColorStop(0, "rgba(255, 165, 0, 0.8)"); // Orange
-          gradient.addColorStop(0.7, "rgba(255, 0, 0, 0.5)"); // Red
-          gradient.addColorStop(1, "rgba(255, 0, 0, 0)"); // Transparent
-
-          this.ctx.fillStyle = gradient;
-          this.ctx.beginPath();
-          this.ctx.arc(
-            sheep.x + sheep.width / 2,
-            sheep.y + sheep.height / 2,
-            burstRadius,
-            0,
-            Math.PI * 2
-          );
-          this.ctx.fill();
-
-          this.ctx.restore();
-        }
-      }
+      // No effects
     });
 
     // Draw dog with appropriate image based on direction
