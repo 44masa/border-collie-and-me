@@ -3,7 +3,7 @@ node_modules/
 jspm_packages/
 
 # Build outputs
-dist/
+# dist/ - Including dist directory for deployment
 build/
 out/
 .output/

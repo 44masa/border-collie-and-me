@@ -90,6 +90,16 @@ interface GameAssets {
   sheepRight: HTMLImageElement;
 }
 
+// Import dog and sheep images
+import dogUpImage from "./assets/images/dog/top.png";
+import dogDownImage from "./assets/images/dog/down.png";
+import dogLeftImage from "./assets/images/dog/left.png";
+import dogRightImage from "./assets/images/dog/right.png";
+import sheepUpImage from "./assets/images/sheep/up.png";
+import sheepDownImage from "./assets/images/sheep/down.png";
+import sheepLeftImage from "./assets/images/sheep/left.png";
+import sheepRightImage from "./assets/images/sheep/right.png";
+
 // Game class
 export class HerdingGame {
   private canvas: HTMLCanvasElement;
@@ -185,17 +195,17 @@ export class HerdingGame {
       sheepRight: new Image(),
     };
 
-    // Load dog images
-    this.assets.dogUp.src = "/src/assets/images/dog/top.png";
-    this.assets.dogDown.src = "/src/assets/images/dog/down.png";
-    this.assets.dogLeft.src = "/src/assets/images/dog/left.png";
-    this.assets.dogRight.src = "/src/assets/images/dog/right.png";
+    // Load dog images using imported assets
+    this.assets.dogUp.src = dogUpImage;
+    this.assets.dogDown.src = dogDownImage;
+    this.assets.dogLeft.src = dogLeftImage;
+    this.assets.dogRight.src = dogRightImage;
 
-    // Load sheep images
-    this.assets.sheepUp.src = "/src/assets/images/sheep/up.png";
-    this.assets.sheepDown.src = "/src/assets/images/sheep/down.png";
-    this.assets.sheepLeft.src = "/src/assets/images/sheep/left.png";
-    this.assets.sheepRight.src = "/src/assets/images/sheep/right.png";
+    // Load sheep images using imported assets
+    this.assets.sheepUp.src = sheepUpImage;
+    this.assets.sheepDown.src = sheepDownImage;
+    this.assets.sheepLeft.src = sheepLeftImage;
+    this.assets.sheepRight.src = sheepRightImage;
 
     // Get UI elements
     this.sheepCountElement = document.getElementById(
