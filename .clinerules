@@ -1,0 +1,105 @@
+# Border Collie and Me - Project Intelligence
+
+This file captures important patterns, preferences, and project intelligence for the "Border Collie and Me" game project. It serves as a learning journal to help maintain consistency and apply project-specific knowledge across development sessions.
+
+## Project Structure
+
+- The project is organized as a browser-based game using HTML5, CSS3, and TypeScript
+- Memory bank documentation is maintained in the `memory-bank/` directory
+- Core files follow a specific hierarchy with `projectbrief.md` as the foundation
+
+## Development Patterns
+
+### Code Organization
+
+- Entity-Component System (ECS) architecture for game entities
+- Systems process entities with specific component combinations
+- Observer pattern for event-driven communication between systems
+- State pattern for entity behavior states (sheep, Border Collie)
+- Command pattern for player inputs and AI actions
+
+### Naming Conventions
+
+- PascalCase for class names and types
+- camelCase for variables, functions, and methods
+- ALL_CAPS for constants
+- Use descriptive, domain-specific naming that reflects game concepts
+
+### File Organization
+
+- Group files by feature/system rather than by type
+- Keep related functionality together
+- Use index files to expose public API for modules
+
+## Technical Decisions
+
+### Build Tools
+
+- Vite for fast bundling and development
+- Hot Module Replacement for rapid iteration
+- Efficient asset handling and optimization
+
+### Rendering
+
+- Canvas-based rendering for pixel-perfect control
+- Sprite atlases for efficient rendering
+- Object pooling for performance with many entities
+
+### State Management
+
+- Central state store as single source of truth
+- Immutable state updates for predictability
+- Serializable state for save/load functionality
+
+### Asset Management
+
+- Progressive loading with prioritization
+- Texture packing for efficient memory usage
+- Audio pooling for performance
+
+## Game Design Principles
+
+### Core Experience
+
+- Balance between management simulation and active herding gameplay
+- Emotional connection with Border Collie and flock
+- Progression through ranch improvement and Border Collie training
+
+### Pacing
+
+- Daily routine provides structure
+- Seasonal changes create natural progression rhythm
+- Events and challenges add variety
+
+### Difficulty
+
+- Gradual introduction of mechanics
+- Forgiving early gameplay
+- Increasing complexity through expansion rather than difficulty
+
+## User Preferences
+
+- To be documented as development progresses and user feedback is gathered
+
+## Known Challenges
+
+### Technical
+
+- Performance with many entities (sheep)
+- Pathfinding optimization
+- Memory management for long sessions
+- Browser compatibility
+
+### Design
+
+- Balancing challenge vs. accessibility
+- Creating intuitive Border Collie controls
+- Teaching complex mechanics gradually
+
+## Project Evolution
+
+This section will track how key decisions evolve over time as the project develops.
+
+---
+
+Note: This file will be updated regularly as new patterns and preferences emerge during development.
