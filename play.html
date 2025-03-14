@@ -43,7 +43,8 @@
         margin-top: 20px;
         display: flex;
         justify-content: space-between;
-        width: 800px;
+        width: 100%;
+        max-width: 800px;
       }
 
       .back-button {
@@ -113,9 +114,14 @@
   <body>
     <div class="game-container">
       <canvas id="gameCanvas" width="800" height="600"></canvas>
-      <div class="message-box" id="winMessage">
+      <div class="message-box" id="levelCompleteMessage">
         <h2>Level Complete!</h2>
-        <p>You successfully herded the sheep!</p>
+        <p>You successfully herded all sheep!</p>
+        <button id="nextLevelButton">Next Level</button>
+      </div>
+      <div class="message-box" id="gameClearMessage">
+        <h2>Game Clear!</h2>
+        <p>Congratulations! You completed all 10 levels!</p>
         <button id="restartButton">Play Again</button>
       </div>
       <div class="message-box" id="timeoutMessage">
@@ -127,14 +133,15 @@
     <div class="ui-container">
       <a href="index.html" class="back-button">Back to Title</a>
       <div class="game-info">
-        Time: <span id="timeRemaining">1:00</span> | Sheep in Gate:
-        <span id="sheepCount">0</span>/<span id="targetCount">5</span>
+        Level: <span id="currentLevel">1</span> | Time:
+        <span id="timeRemaining">1:00</span> | Sheep in Gate:
+        <span id="sheepCount">0</span>/<span id="targetCount">1</span>
       </div>
     </div>
     <div class="instructions">
       <p>
         Use arrow keys to move the Border Collie. Herd all sheep into the gate
-        before time runs out!
+        before time runs out! Complete all 10 levels to win the game.
       </p>
     </div>
 

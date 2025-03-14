@@ -8,6 +8,10 @@ interface GameConfig {
   gateWidth: number;
   gateHeight: number;
   timeLimit: number; // in seconds
+  level: number; // Current game level
+  maxLevel: number; // Maximum level (game clear)
+  mapWidth: number; // Canvas width based on level
+  mapHeight: number; // Canvas height based on level
 }
 
 // Game Entities
@@ -57,8 +61,9 @@ interface GameState {
     ArrowRight: boolean;
   };
   sheepInGate: number;
-  gameWon: boolean;
+  levelComplete: boolean;
   gameOver: boolean;
+  gameClear: boolean; // True when all levels are completed
   timeRemaining: number; // in seconds
 }
 
@@ -88,8 +93,11 @@ export class HerdingGame {
   private sheepCountElement: HTMLElement;
   private targetCountElement: HTMLElement;
   private timeElement: HTMLElement;
-  private winMessage: HTMLElement;
+  private levelElement: HTMLElement;
+  private levelCompleteMessage: HTMLElement;
   private timeoutMessage: HTMLElement;
+  private gameClearMessage: HTMLElement;
+  private nextLevelButton: HTMLElement;
   private restartButton: HTMLElement;
   private timeoutRestartButton: HTMLElement;
 
@@ -100,21 +108,29 @@ export class HerdingGame {
 
     // Game configuration
     this.config = {
-      sheepCount: 5,
-      targetSheepCount: 5,
+      sheepCount: 1, // Start with 1 sheep at level 1
+      targetSheepCount: 1,
       dogSpeed: 3,
       sheepSpeed: 1.5,
       dogInfluenceRadius: 100,
       gateWidth: 100,
       gateHeight: 60,
       timeLimit: 60, // 1 minute
+      level: 1, // Start at level 1
+      maxLevel: 10, // Game clear at level 10
+      mapWidth: 400, // Half of original 800
+      mapHeight: 300, // Half of original 600
     };
+
+    // Set canvas size based on level
+    this.canvas.width = this.config.mapWidth;
+    this.canvas.height = this.config.mapHeight;
 
     // Initialize game state
     this.state = {
       dog: {
-        x: 400,
-        y: 300,
+        x: this.config.mapWidth / 2,
+        y: this.config.mapHeight / 2,
         width: 60,
         height: 60,
         direction: "down",
@@ -122,8 +138,8 @@ export class HerdingGame {
       },
       sheep: [],
       gate: {
-        x: 700,
-        y: 300 - this.config.gateHeight / 2,
+        x: this.config.mapWidth - 100,
+        y: this.config.mapHeight / 2 - this.config.gateHeight / 2,
         width: this.config.gateWidth,
         height: this.config.gateHeight,
       },
@@ -134,8 +150,9 @@ export class HerdingGame {
         ArrowRight: false,
       },
       sheepInGate: 0,
-      gameWon: false,
+      levelComplete: false,
       gameOver: false,
+      gameClear: false,
       timeRemaining: this.config.timeLimit,
     };
 
@@ -171,9 +188,18 @@ export class HerdingGame {
       "targetCount"
     ) as HTMLElement;
     this.timeElement = document.getElementById("timeRemaining") as HTMLElement;
-    this.winMessage = document.getElementById("winMessage") as HTMLElement;
+    this.levelElement = document.getElementById("currentLevel") as HTMLElement;
+    this.levelCompleteMessage = document.getElementById(
+      "levelCompleteMessage"
+    ) as HTMLElement;
     this.timeoutMessage = document.getElementById(
       "timeoutMessage"
+    ) as HTMLElement;
+    this.gameClearMessage = document.getElementById(
+      "gameClearMessage"
+    ) as HTMLElement;
+    this.nextLevelButton = document.getElementById(
+      "nextLevelButton"
     ) as HTMLElement;
     this.restartButton = document.getElementById(
       "restartButton"
@@ -182,9 +208,10 @@ export class HerdingGame {
       "timeoutRestartButton"
     ) as HTMLElement;
 
-    // Set target count in UI
+    // Set UI elements
     this.targetCountElement.textContent =
       this.config.targetSheepCount.toString();
+    this.levelElement.textContent = this.config.level.toString();
 
     // Initialize event listeners
     this.initEventListeners();
@@ -211,26 +238,73 @@ export class HerdingGame {
       }
     });
 
-    // Restart button event listeners
-    this.restartButton.addEventListener("click", () => this.initGame());
-    this.timeoutRestartButton.addEventListener("click", () => this.initGame());
+    // Button event listeners
+    this.nextLevelButton.addEventListener("click", () => this.nextLevel());
+    this.restartButton.addEventListener("click", () => this.restartGame());
+    this.timeoutRestartButton.addEventListener("click", () =>
+      this.restartGame()
+    );
   }
 
-  private initGame(): void {
-    // Reset game state
-    this.state.dog.x = 400;
-    this.state.dog.y = 300;
+  private restartGame(): void {
+    // Reset to level 1
+    this.config.level = 1;
+    this.updateLevelConfig();
+    this.initLevel();
+  }
+
+  private nextLevel(): void {
+    // Advance to next level
+    this.config.level++;
+    this.updateLevelConfig();
+    this.initLevel();
+  }
+
+  private updateLevelConfig(): void {
+    // Update configuration based on current level
+    if (this.config.level <= 4) {
+      // Levels 1-4: Small map, increasing sheep
+      this.config.sheepCount = this.config.level;
+      this.config.targetSheepCount = this.config.level;
+      this.config.mapWidth = 400; // Half of original
+      this.config.mapHeight = 300; // Half of original
+    } else {
+      // Levels 5-10: Larger map, increasing sheep
+      this.config.sheepCount = this.config.level;
+      this.config.targetSheepCount = this.config.level;
+      this.config.mapWidth = 600; // 1.5x the small map
+      this.config.mapHeight = 450; // 1.5x the small map
+    }
+
+    // Update canvas size
+    this.canvas.width = this.config.mapWidth;
+    this.canvas.height = this.config.mapHeight;
+
+    // Update gate position based on new map size
+    this.state.gate.x = this.config.mapWidth - 100;
+    this.state.gate.y = this.config.mapHeight / 2 - this.config.gateHeight / 2;
+  }
+
+  private initLevel(): void {
+    // Reset game state for current level
+    this.state.dog.x = this.config.mapWidth / 2;
+    this.state.dog.y = this.config.mapHeight / 2;
     this.state.dog.direction = "down";
     this.state.sheepInGate = 0;
-    this.state.gameWon = false;
+    this.state.levelComplete = false;
     this.state.gameOver = false;
+    this.state.gameClear = false;
     this.state.timeRemaining = this.config.timeLimit;
 
     // Update UI
     this.sheepCountElement.textContent = "0";
+    this.targetCountElement.textContent =
+      this.config.targetSheepCount.toString();
+    this.levelElement.textContent = this.config.level.toString();
     this.timeElement.textContent = this.formatTime(this.state.timeRemaining);
-    this.winMessage.style.display = "none";
+    this.levelCompleteMessage.style.display = "none";
     this.timeoutMessage.style.display = "none";
+    this.gameClearMessage.style.display = "none";
 
     // Initialize sheep
     this.initializeSheep();
@@ -243,6 +317,11 @@ export class HerdingGame {
     this.gameLoop(this.lastTime);
   }
 
+  private initGame(): void {
+    // Initialize the first level
+    this.restartGame();
+  }
+
   private initializeSheep(): void {
     this.state.sheep = [];
     for (let i = 0; i < this.config.sheepCount; i++) {
@@ -252,7 +331,7 @@ export class HerdingGame {
         x = Math.random() * (this.canvas.width - 100);
         y = Math.random() * this.canvas.height;
       } while (
-        x > this.state.gate.x - 150 &&
+        x > this.state.gate.x - 100 &&
         y > this.state.gate.y - 50 &&
         y < this.state.gate.y + this.state.gate.height + 50
       );
@@ -609,17 +688,26 @@ export class HerdingGame {
     // Update UI
     this.sheepCountElement.textContent = this.state.sheepInGate.toString();
 
-    // Check win condition - all sheep must be in gate
+    // Check level completion - all sheep must be in gate
     const allSheepInGate = this.state.sheep.every((sheep) => sheep.inGate);
-    if (allSheepInGate && !this.state.gameWon && !this.state.gameOver) {
-      this.state.gameWon = true;
-      this.winMessage.style.display = "block";
+    if (allSheepInGate && !this.state.levelComplete && !this.state.gameOver) {
+      this.state.levelComplete = true;
+
+      if (this.config.level >= this.config.maxLevel) {
+        // Game clear - completed all levels
+        this.state.gameClear = true;
+        this.gameClearMessage.style.display = "block";
+        this.showGameClearEffect();
+      } else {
+        // Level complete, but not game clear
+        this.levelCompleteMessage.style.display = "block";
+      }
     }
   }
 
   private updateTime(deltaTime: number): void {
     // Update time remaining
-    if (!this.state.gameWon && !this.state.gameOver) {
+    if (!this.state.levelComplete && !this.state.gameOver) {
       this.state.timeRemaining -= deltaTime / 1000;
       this.timeElement.textContent = this.formatTime(this.state.timeRemaining);
 
@@ -629,6 +717,36 @@ export class HerdingGame {
         this.state.gameOver = true;
         this.timeoutMessage.style.display = "block";
       }
+    }
+  }
+
+  private showGameClearEffect(): void {
+    // Create a celebratory effect for game clear
+    const effectCount = 100;
+    const colors = [
+      "#FF0000",
+      "#00FF00",
+      "#0000FF",
+      "#FFFF00",
+      "#FF00FF",
+      "#00FFFF",
+    ];
+
+    // Create particles
+    for (let i = 0; i < effectCount; i++) {
+      setTimeout(() => {
+        if (!this.ctx) return;
+
+        const x = Math.random() * this.canvas.width;
+        const y = Math.random() * this.canvas.height;
+        const size = 5 + Math.random() * 10;
+        const color = colors[Math.floor(Math.random() * colors.length)];
+
+        this.ctx.fillStyle = color;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, size, 0, Math.PI * 2);
+        this.ctx.fill();
+      }, i * 20); // Stagger the particles
     }
   }
 
@@ -742,7 +860,7 @@ export class HerdingGame {
     this.lastTime = currentTime;
 
     // Update game state
-    if (!this.state.gameWon && !this.state.gameOver) {
+    if (!this.state.levelComplete && !this.state.gameOver) {
       this.updateDog();
       this.updateSheep(deltaTime);
       this.updateTime(deltaTime);
