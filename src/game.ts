@@ -165,9 +165,9 @@ export class HerdingGame {
         height: this.config.gateHeight,
       },
       wall: {
-        x: this.config.mapWidth - 100 - 5, // Position wall to the left of the gate
+        width: 5, // Wall thickness
+        x: this.config.mapWidth - 100 - 5, // Initial position, will be updated properly in updateLevelConfig
         y: this.config.mapHeight / 2 - this.config.gateHeight / 2, // Same y-position as gate
-        width: 5, // Thinner wall thickness
         height: this.config.gateHeight, // Same height as gate
       },
       keys: {
@@ -254,6 +254,10 @@ export class HerdingGame {
         this.state.keys.hasOwnProperty(e.key as keyof typeof this.state.keys)
       ) {
         this.state.keys[e.key as keyof typeof this.state.keys] = true;
+        // Prevent default browser behavior for arrow keys
+        if (e.key.startsWith("Arrow")) {
+          e.preventDefault();
+        }
       }
     });
 
@@ -262,6 +266,10 @@ export class HerdingGame {
         this.state.keys.hasOwnProperty(e.key as keyof typeof this.state.keys)
       ) {
         this.state.keys[e.key as keyof typeof this.state.keys] = false;
+        // Prevent default browser behavior for arrow keys
+        if (e.key.startsWith("Arrow")) {
+          e.preventDefault();
+        }
       }
     });
 
@@ -390,40 +398,48 @@ export class HerdingGame {
     // Store previous position to revert if collision occurs
     const prevX = this.state.dog.x;
     const prevY = this.state.dog.y;
+    let moved = false;
 
     // Update dog position based on key presses
     if (this.state.keys.ArrowUp) {
       this.state.dog.y -= this.state.dog.speed;
       this.state.dog.direction = "up";
+      moved = true;
     }
     if (this.state.keys.ArrowDown) {
       this.state.dog.y += this.state.dog.speed;
       this.state.dog.direction = "down";
+      moved = true;
     }
     if (this.state.keys.ArrowLeft) {
       this.state.dog.x -= this.state.dog.speed;
       this.state.dog.direction = "left";
+      moved = true;
     }
     if (this.state.keys.ArrowRight) {
       this.state.dog.x += this.state.dog.speed;
       this.state.dog.direction = "right";
+      moved = true;
     }
 
-    // Keep dog within canvas bounds
-    this.state.dog.x = Math.max(
-      0,
-      Math.min(this.canvas.width - this.state.dog.width, this.state.dog.x)
-    );
-    this.state.dog.y = Math.max(
-      0,
-      Math.min(this.canvas.height - this.state.dog.height, this.state.dog.y)
-    );
+    // Only update position if dog actually moved
+    if (moved) {
+      // Keep dog within canvas bounds
+      this.state.dog.x = Math.max(
+        0,
+        Math.min(this.canvas.width - this.state.dog.width, this.state.dog.x)
+      );
+      this.state.dog.y = Math.max(
+        0,
+        Math.min(this.canvas.height - this.state.dog.height, this.state.dog.y)
+      );
 
-    // Check collision with wall
-    if (this.checkCollision(this.state.dog, this.state.wall)) {
-      // Revert to previous position if collision occurs
-      this.state.dog.x = prevX;
-      this.state.dog.y = prevY;
+      // Check collision with wall
+      if (this.checkCollision(this.state.dog, this.state.wall)) {
+        // Revert to previous position if collision occurs
+        this.state.dog.x = prevX;
+        this.state.dog.y = prevY;
+      }
     }
   }
 
@@ -896,6 +912,15 @@ export class HerdingGame {
       this.state.wall.width,
       this.state.wall.height
     );
+
+    // Debug visualization of collision boundaries (uncomment for debugging)
+    // this.ctx.strokeStyle = "red";
+    // this.ctx.strokeRect(
+    //   this.state.wall.x,
+    //   this.state.wall.y,
+    //   this.state.wall.width,
+    //   this.state.wall.height
+    // );
 
     // Draw gate
     this.ctx.fillStyle = "#8B4513"; // Brown color for gate
