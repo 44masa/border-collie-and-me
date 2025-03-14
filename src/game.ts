@@ -29,6 +29,13 @@ interface Sheep {
   height: number;
   inGate: boolean;
   visible: boolean;
+  gateTimer?: number; // Timer for tracking how long sheep has been in gate
+  gateCooldown?: number; // Cooldown timer to prevent immediate re-entry
+  effect?: {
+    type: "enter" | "exit"; // Type of effect
+    timer: number; // Timer for effect duration
+    maxTime: number; // Maximum time for the effect
+  };
 }
 
 interface Gate {
@@ -259,6 +266,8 @@ export class HerdingGame {
         height: 40,
         inGate: false,
         visible: true,
+        gateTimer: 0,
+        gateCooldown: 0,
       });
     }
   }
@@ -293,7 +302,7 @@ export class HerdingGame {
     );
   }
 
-  private updateSheep(): void {
+  private updateSheep(deltaTime: number): void {
     // Reset sheep in gate count
     this.state.sheepInGate = 0;
 
@@ -306,21 +315,116 @@ export class HerdingGame {
 
     // Update each sheep
     this.state.sheep.forEach((sheep) => {
-      // Skip processing if sheep is not visible
-      if (!sheep.visible) {
-        return;
+      // Update effect timer if active
+      if (sheep.effect) {
+        sheep.effect.timer += deltaTime / 1000;
+        if (sheep.effect.timer >= sheep.effect.maxTime) {
+          sheep.effect = undefined; // Remove effect when timer expires
+        }
       }
 
-      // Check if sheep is in gate
+      // If sheep is in gate, update timer
+      if (sheep.inGate) {
+        if (sheep.gateTimer !== undefined) {
+          sheep.gateTimer += deltaTime / 1000; // Convert to seconds
+
+          // After 3 seconds, sheep can leave the gate
+          if (sheep.gateTimer >= 3) {
+            // Allow sheep to move freely again
+            sheep.inGate = false; // Reset gate status so sheep can move normally
+            sheep.gateTimer = 0; // Reset timer
+            sheep.gateCooldown = 1.0; // Set cooldown to prevent immediate re-entry (1 second)
+
+            // Create exit effect
+            sheep.effect = {
+              type: "exit",
+              timer: 0,
+              maxTime: 0.5, // Effect lasts 0.5 seconds
+            };
+
+            // Make sheep jump out randomly either upward or downward
+            sheep.vx = 0; // No horizontal velocity initially
+
+            // Randomly choose up or down direction with full speed
+            if (Math.random() < 0.5) {
+              // Jump upward
+              sheep.vy = -this.config.sheepSpeed * 1.5; // Faster than normal speed
+            } else {
+              // Jump downward
+              sheep.vy = this.config.sheepSpeed * 1.5; // Faster than normal speed
+            }
+
+            return; // Continue with normal movement in the next frame
+          } else {
+            // During the 3 seconds, sheep can move inside the gate but not leave
+            // Calculate forces for movement inside the gate
+            sheep.vx += (Math.random() - 0.5) * 0.1;
+            sheep.vy += (Math.random() - 0.5) * 0.1;
+
+            // Limit speed
+            const speed = Math.sqrt(sheep.vx * sheep.vx + sheep.vy * sheep.vy);
+            if (speed > this.config.sheepSpeed * 0.5) {
+              sheep.vx = (sheep.vx / speed) * this.config.sheepSpeed * 0.5;
+              sheep.vy = (sheep.vy / speed) * this.config.sheepSpeed * 0.5;
+            }
+
+            // Update position
+            sheep.x += sheep.vx;
+            sheep.y += sheep.vy;
+
+            // Keep sheep within gate bounds
+            sheep.x = Math.max(
+              this.state.gate.x + 5,
+              Math.min(
+                this.state.gate.x + this.state.gate.width - sheep.width - 5,
+                sheep.x
+              )
+            );
+            sheep.y = Math.max(
+              this.state.gate.y + 5,
+              Math.min(
+                this.state.gate.y + this.state.gate.height - sheep.height - 5,
+                sheep.y
+              )
+            );
+
+            return; // Skip regular movement processing
+          }
+        }
+      }
+
+      // Update gate cooldown timer if active
+      if (sheep.gateCooldown && sheep.gateCooldown > 0) {
+        sheep.gateCooldown -= deltaTime / 1000;
+        if (sheep.gateCooldown < 0) {
+          sheep.gateCooldown = 0;
+        }
+      }
+
+      // Always ensure sheep are visible
+      sheep.visible = true;
+
+      // Check if sheep is in gate (only if not in cooldown)
       if (
+        (!sheep.gateCooldown || sheep.gateCooldown <= 0) &&
         sheep.x > this.state.gate.x &&
         sheep.x < this.state.gate.x + this.state.gate.width &&
         sheep.y > this.state.gate.y &&
         sheep.y < this.state.gate.y + this.state.gate.height
       ) {
+        // If sheep wasn't in gate before, create an enter effect
+        if (!sheep.inGate) {
+          sheep.effect = {
+            type: "enter",
+            timer: 0,
+            maxTime: 0.5, // Effect lasts 0.5 seconds
+          };
+        }
+
         sheep.inGate = true;
-        sheep.visible = false; // Make sheep disappear when it enters the gate
-      } else {
+        sheep.gateTimer = 0; // Start the timer
+      } else if (!sheep.inGate) {
+        // Only set to false if not already in gate (to avoid overriding the 3-second timer logic)
         sheep.inGate = false;
       }
 
@@ -437,12 +541,9 @@ export class HerdingGame {
     // Update UI
     this.sheepCountElement.textContent = this.state.sheepInGate.toString();
 
-    // Check win condition
-    if (
-      this.state.sheepInGate >= this.config.targetSheepCount &&
-      !this.state.gameWon &&
-      !this.state.gameOver
-    ) {
+    // Check win condition - all sheep must be in gate
+    const allSheepInGate = this.state.sheep.every((sheep) => sheep.inGate);
+    if (allSheepInGate && !this.state.gameWon && !this.state.gameOver) {
       this.state.gameWon = true;
       this.winMessage.style.display = "block";
     }
@@ -499,10 +600,8 @@ export class HerdingGame {
 
     // Draw sheep
     this.state.sheep.forEach((sheep) => {
-      // Only draw visible sheep
-      if (!sheep.visible) {
-        return;
-      }
+      // Always ensure sheep are visible before drawing
+      sheep.visible = true;
 
       // Determine sheep direction based on velocity
       let sheepImage: HTMLImageElement;
@@ -537,6 +636,68 @@ export class HerdingGame {
         sheep.width,
         sheep.height
       );
+
+      // Draw effects if active
+      if (sheep.effect) {
+        const progress = sheep.effect.timer / sheep.effect.maxTime; // 0 to 1
+
+        if (sheep.effect.type === "enter") {
+          // Draw enter effect (green sparkles)
+          this.ctx.save();
+          this.ctx.globalAlpha = 1 - progress; // Fade out
+
+          // Draw multiple sparkles around the sheep
+          const sparkleCount = 8;
+          const radius = 30 * progress; // Expand outward
+
+          this.ctx.fillStyle = "#4CAF50"; // Green color
+          for (let i = 0; i < sparkleCount; i++) {
+            const angle = (i / sparkleCount) * Math.PI * 2;
+            const x = sheep.x + sheep.width / 2 + Math.cos(angle) * radius;
+            const y = sheep.y + sheep.height / 2 + Math.sin(angle) * radius;
+            const size = 5 * (1 - progress); // Shrink as they expand
+
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, size, 0, Math.PI * 2);
+            this.ctx.fill();
+          }
+
+          this.ctx.restore();
+        } else if (sheep.effect.type === "exit") {
+          // Draw exit effect (red/orange burst)
+          this.ctx.save();
+          this.ctx.globalAlpha = 1 - progress; // Fade out
+
+          // Draw burst effect
+          const burstRadius = 40 * progress; // Expand outward
+
+          // Create radial gradient for fire-like effect
+          const gradient = this.ctx.createRadialGradient(
+            sheep.x + sheep.width / 2,
+            sheep.y + sheep.height / 2,
+            0,
+            sheep.x + sheep.width / 2,
+            sheep.y + sheep.height / 2,
+            burstRadius
+          );
+          gradient.addColorStop(0, "rgba(255, 165, 0, 0.8)"); // Orange
+          gradient.addColorStop(0.7, "rgba(255, 0, 0, 0.5)"); // Red
+          gradient.addColorStop(1, "rgba(255, 0, 0, 0)"); // Transparent
+
+          this.ctx.fillStyle = gradient;
+          this.ctx.beginPath();
+          this.ctx.arc(
+            sheep.x + sheep.width / 2,
+            sheep.y + sheep.height / 2,
+            burstRadius,
+            0,
+            Math.PI * 2
+          );
+          this.ctx.fill();
+
+          this.ctx.restore();
+        }
+      }
     });
 
     // Draw dog with appropriate image based on direction
@@ -575,7 +736,7 @@ export class HerdingGame {
     // Update game state
     if (!this.state.gameWon && !this.state.gameOver) {
       this.updateDog();
-      this.updateSheep();
+      this.updateSheep(deltaTime);
       this.updateTime(deltaTime);
     }
 
